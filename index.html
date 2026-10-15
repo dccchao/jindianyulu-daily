@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>毛选 · 每日一句</title>
+<style>
+ body{margin:0;background:#f8f6f1;color:#292824;font-family:system-ui,sans-serif;line-height:1.7}
+ main{max-width:640px;margin:12vh auto;padding:32px}h1{font-size:22px;font-weight:500}
+ blockquote{margin:42px 0 12px;font-size:28px;line-height:1.6}cite{font-size:13px;font-style:normal;color:#69655d}
+ a{color:inherit}button{margin-top:32px;border:1px solid #cbc6ba;border-radius:16px;background:transparent;padding:10px 18px;font:inherit}
+</style>
+<main><h1>毛选 · 每日一句</h1><blockquote id="quote">正在读取…</blockquote><cite id="source"></cite>
+ <p><button id="next" disabled>换一句</button></p>
+ <p><a href="quotes.json">App 在线语录库</a></p>
+ <small>精选原文短句，出处记录为 PDF 页序。每日按设备本地日期选句。</small>
+</main>
+<script>
+fetch('quotes.json').then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{
+ const now=new Date();const day=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000);
+ let index=((day%data.quotes.length)+data.quotes.length)%data.quotes.length;
+ function show(){document.querySelector('#quote').textContent=data.quotes[index].text;document.querySelector('#source').textContent=data.quotes[index].source}
+ show();const next=document.querySelector('#next');next.disabled=false;
+ next.onclick=()=>{if(data.quotes.length>1)index=(index+1+Math.floor(Math.random()*(data.quotes.length-1)))%data.quotes.length;show()};
+}).catch(()=>{document.querySelector('#quote').textContent='暂时无法读取语录，请稍后重试。'});
+</script>
+</html>
