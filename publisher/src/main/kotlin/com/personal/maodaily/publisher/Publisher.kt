@@ -63,26 +63,24 @@ object Publisher {
 
   for(file in files) {
    try {
-   require(!Files.isSymbolicLink(file.toPath())) { "不接受符号链接" }
-   require(file.length()<=ReadingText.MAX_BYTES) { "${file.name} 超过10 MB" }
-   val id=BookCompiler.stableId(file.relativeTo(reading).invariantSeparatorsPath);require(ids.add(id))
-   val title=file.nameWithoutExtension.take(80)
-   val document=BookCompiler.compile(file.name,file.readBytes(),title)
-   val review=File(root,"reviews/$id.json")
-   if(review.exists()) {
-    require(review.length()<=4*1024*1024)
-    val excluded=JSONObject(review.readText()).getJSONArray("exclude");require(excluded.length()<=20_000)
-    val blocked=(0 until excluded.length()).map { QuoteRules.normalize(excluded.getString(it)) }.toSet()
-    val quotes=document.getJSONArray("quotes")
-    val retained=(0 until quotes.length()).map { quotes.getJSONObject(it) }.filterNot { it.getString("text") in blocked }
-    require(retained.isNotEmpty()) { "${file.name} 人工排除后没有可用语录" }
-    document.put("quotes",JSONArray(retained)).put("manualExclusions",quotes.length()-retained.size)
-   }
-   val path="books/$id.json";outputs[path]=document.toString(2)+"\n"
-
-
-   entries.add(JSONObject().put("id",id).put("title",title).put("path",path).put("count",document.getJSONArray("quotes").length()))
-   println("${file.name} [$id]: ${document.getJSONArray("quotes").length()} 条正文片段")
+    require(!Files.isSymbolicLink(file.toPath())) { "不接受符号链接" }
+    require(file.length()<=ReadingText.MAX_BYTES) { "${file.name} 超过10 MB" }
+    val id=BookCompiler.stableId(file.relativeTo(reading).invariantSeparatorsPath);require(ids.add(id))
+    val title=file.nameWithoutExtension.take(80)
+    val document=BookCompiler.compile(file.name,file.readBytes(),title)
+    val review=File(root,"reviews/$id.json")
+    if(review.exists()) {
+     require(review.length()<=4*1024*1024)
+     val excluded=JSONObject(review.readText()).getJSONArray("exclude");require(excluded.length()<=20_000)
+     val blocked=(0 until excluded.length()).map { QuoteRules.normalize(excluded.getString(it)) }.toSet()
+     val quotes=document.getJSONArray("quotes")
+     val retained=(0 until quotes.length()).map { quotes.getJSONObject(it) }.filterNot { it.getString("text") in blocked }
+     require(retained.isNotEmpty()) { "${file.name} 人工排除后没有可用语录" }
+     document.put("quotes",JSONArray(retained)).put("manualExclusions",quotes.length()-retained.size)
+    }
+    val path="books/$id.json";outputs[path]=document.toString(2)+"\n"
+    entries.add(JSONObject().put("id",id).put("title",title).put("path",path).put("count",document.getJSONArray("quotes").length()))
+    println("${file.name} [$id]: ${document.getJSONArray("quotes").length()} 条正文片段")
    } catch(e:Exception) {
     val warning="${file.relativeTo(reading).invariantSeparatorsPath}: ${e.message ?: e.javaClass.simpleName}"
      .replace("%","%25").replace("\r","%0D").replace("\n","%0A")
