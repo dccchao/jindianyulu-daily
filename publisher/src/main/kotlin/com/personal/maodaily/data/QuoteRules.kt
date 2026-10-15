@@ -15,20 +15,30 @@ object QuoteRules {
  private fun fragments(text:String):List<String> {
   if(text.length<=32) return listOf(text)
   val clauses=Regex("[^，；：,;:]+[，；：,;:]?").findAll(text).map { it.value.trim() }.toList()
-  val best=Array(clauses.size+1) { emptyList<String>() }
+  val covered=IntArray(clauses.size+1)
+  val counts=IntArray(clauses.size+1)
+  val ends=IntArray(clauses.size) { -1 }
   for(i in clauses.indices.reversed()) {
-   best[i]=best[i+1]
+   covered[i]=covered[i+1];counts[i]=counts[i+1]
    var joined=""
    for(j in i until clauses.size) {
     joined+=clauses[j]
     if(joined.length>MAX_LENGTH) break
     if(!eligibleFragment(joined)) continue
-    val candidate=listOf(joined)+best[j+1]
-    val covered=candidate.sumOf { it.length };val previous=best[i].sumOf { it.length }
-    if(covered>previous || (covered==previous && candidate.size<best[i].size)) best[i]=candidate
+    val score=joined.length+covered[j+1];val count=1+counts[j+1]
+    if(score>covered[i] || (score==covered[i] && count<counts[i])) {
+     covered[i]=score;counts[i]=count;ends[i]=j
+    }
    }
   }
-  return best[0]
+  val result=mutableListOf<String>();var index=0
+  while(index<clauses.size) {
+   val end=ends[index]
+   if(end<0) index++ else {
+    result.add(clauses.subList(index,end+1).joinToString(""));index=end+1
+   }
+  }
+  return result
  }
  fun select(paragraphs:List<String>):List<String> {
   val sentence=Regex(".+?(?:[。！？!?][”’\\\"'」』）)]?|\\.(?:[”’\\\"']?(?=\\s|$)))")
