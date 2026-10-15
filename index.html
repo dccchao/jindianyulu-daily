@@ -10,17 +10,34 @@
  a{color:inherit}button{margin-top:32px;border:1px solid #cbc6ba;border-radius:16px;background:transparent;padding:10px 18px;font:inherit}
 </style>
 <main><h1>毛选 · 每日一句</h1><blockquote id="quote">正在读取…</blockquote><cite id="source"></cite>
- <p><button id="next" disabled>换一句</button></p>
- <p><a href="quotes.json">App 在线语录库</a></p>
+ <p><label>在线书架 <select id="books"><option value="">毛选经典短句</option></select></label></p><p><button id="next" disabled>换一句</button></p>
+ <p><a href="books.json">App 在线书目清单</a></p>
  <small>精选原文短句，出处记录为 PDF 页序。每日按设备本地日期选句。</small>
 </main>
 <script>
-fetch('quotes.json').then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{
- const now=new Date();const day=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000);
- let index=((day%data.quotes.length)+data.quotes.length)%data.quotes.length;
- function show(){document.querySelector('#quote').textContent=data.quotes[index].text;document.querySelector('#source').textContent=data.quotes[index].source}
- show();const next=document.querySelector('#next');next.disabled=false;
- next.onclick=()=>{if(data.quotes.length>1)index=(index+1+Math.floor(Math.random()*(data.quotes.length-1)))%data.quotes.length;show()};
-}).catch(()=>{document.querySelector('#quote').textContent='暂时无法读取语录，请稍后重试。'});
+let items=[],index=0;
+const next=document.querySelector('#next'),select=document.querySelector('#books');
+function show(){document.querySelector('#quote').textContent=items[index].text;document.querySelector('#source').textContent=items[index].source}
+async function load(path){
+ const response=await fetch(path);if(!response.ok)throw Error('读取失败');const data=await response.json();
+ if(!Array.isArray(data.quotes)||!data.quotes.length)throw Error('语录库为空');
+ items=data.quotes;const now=new Date();const day=Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000);
+ index=((day%items.length)+items.length)%items.length;show();next.disabled=false;
+}
+next.onclick=()=>{if(items.length>1)index=(index+1+Math.floor(Math.random()*(items.length-1)))%items.length;show()};
+select.onchange=()=>load(select.value||'quotes.json').catch(()=>alert('暂时无法读取这本书，请稍后重试。'));
+(async()=>{
+ try {
+  const response=await fetch('books.json');if(!response.ok)throw Error();const catalog=await response.json();
+  select.replaceChildren();
+  for(const book of catalog.books){
+   if(!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\.json$/.test(book.path))continue;
+   const option=document.createElement('option');option.value=book.path;option.textContent=book.title;select.append(option);
+  }
+  await load(select.value||'quotes.json');
+ } catch(error) {
+  try {await load('quotes.json')} catch(error){document.querySelector('#quote').textContent='暂时无法读取语录，请稍后重试。'}
+ }
+})();
 </script>
 </html>

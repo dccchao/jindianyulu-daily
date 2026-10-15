@@ -1,0 +1,17 @@
+{
+  "books": [
+    {
+      "path": "books/maoxuan-classic.json",
+      "count": 18,
+      "id": "maoxuan-classic",
+      "title": "毛选经典短句"
+    },
+    {
+      "path": "books/shijian-lun.json",
+      "count": 5,
+      "id": "shijian-lun",
+      "title": "实践论 · 精选"
+    }
+  ],
+  "version": 1
+}
