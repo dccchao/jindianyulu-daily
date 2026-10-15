@@ -20,7 +20,7 @@ object ReadingText {
   return text.removePrefix("\uFEFF")
  }
 
- const val BODY_FILTER_VERSION = 2
+ const val BODY_FILTER_VERSION = 3
  private val endPunctuation=Regex("[。！？!?；;.]([”’\\\"'）)])?$",RegexOption.IGNORE_CASE)
  private val noteStart=Regex("^(?:\\[\\^?[^]]+]\\s*:?|[〔【][0-9一二三四五六七八九十]+[〕】]|[（(][0-9]+[)）]|(?:注|注释|注解|脚注|译注|编者注|作者注|说明)[：:]|\\d+[.)、]\\s+)")
  private val chapter=Regex("^(?:第[一二三四五六七八九十百零〇0-9]+[章节卷篇部]|(?:chapter|part|section)\\s+[0-9ivxlc]+|[一二三四五六七八九十]+[、．.]|\\d+(?:\\.\\d+)*[.、]\\s+).{0,70}$",RegexOption.IGNORE_CASE)

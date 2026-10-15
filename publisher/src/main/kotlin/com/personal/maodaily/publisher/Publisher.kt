@@ -16,8 +16,8 @@ object BookCompiler {
   require(title.length in 1..80)
   val text=DocumentReader.extract(name,bytes)
   val body=ReadingText.sentences(text,name.substringAfterLast('.').lowercase() in listOf("md","markdown"))
-  val short=body.filter { it.length<=32 }
-  require(short.isNotEmpty()) { "$name 排除目录、标题、注释和超长句后，没有完整的12–32字正文；请整理正文或改用其他书" }
+  val short=body
+  require(short.isNotEmpty()) { "$name 排除目录、标题、注释和超长句后，没有可用的12–48字正文片段；请整理正文或改用其他书" }
   val quotes=JSONArray(short.mapIndexed { index,line -> JSONObject().put("id",index+1).put("text",line).put("source","《$title》 · 正文摘录 ${index+1}") })
   return JSONObject().put("version",1).put("title",title).put("quotes",quotes)
    .put("bodyFilterVersion",ReadingText.BODY_FILTER_VERSION).put("originalBodySentences",body.size)
@@ -34,7 +34,7 @@ object BookCompiler {
   for(index in 0 until quotes.length()) {
    val quote=quotes.getJSONObject(index);val text=quote.getString("text")
    require(quote.getInt("id")>0 && ids.add(quote.getInt("id")) && texts.add(text))
-   require(QuoteRules.eligible(text) && text.length<=32 && quote.getString("source").length in 1..160)
+   require(QuoteRules.eligibleFragment(text) && quote.getString("source").length in 1..160)
   }
   require(raw.toByteArray().size<=4*1024*1024)
   return quotes.length()
@@ -60,8 +60,9 @@ object Publisher {
   val files=reading.walkTopDown().filter { it.isFile && !it.name.startsWith('.') }
    .sortedBy { it.relativeTo(reading).invariantSeparatorsPath }.toList()
   require(files.size+entries.size<=1000) { "最多1000本书" }
-  var generatedBytes=0
+
   for(file in files) {
+   try {
    require(!Files.isSymbolicLink(file.toPath())) { "不接受符号链接" }
    require(file.length()<=ReadingText.MAX_BYTES) { "${file.name} 超过10 MB" }
    val id=BookCompiler.stableId(file.relativeTo(reading).invariantSeparatorsPath);require(ids.add(id))
@@ -78,11 +79,18 @@ object Publisher {
     document.put("quotes",JSONArray(retained)).put("manualExclusions",quotes.length()-retained.size)
    }
    val path="books/$id.json";outputs[path]=document.toString(2)+"\n"
-   generatedBytes+=outputs.getValue(path).toByteArray().size
-   require(generatedBytes<=64*1024*1024) { "本次生成超过64 MB，请分成不同书架" }
+
+
    entries.add(JSONObject().put("id",id).put("title",title).put("path",path).put("count",document.getJSONArray("quotes").length()))
-   println("${file.name} [$id]: ${document.getJSONArray("quotes").length()} 条完整短句（排除 ${document.getInt("omittedLongSentences")} 条长句）")
+   println("${file.name} [$id]: ${document.getJSONArray("quotes").length()} 条正文片段")
+   } catch(e:Exception) {
+    val warning="${file.relativeTo(reading).invariantSeparatorsPath}: ${e.message ?: e.javaClass.simpleName}"
+     .replace("%","%25").replace("\r","%0D").replace("\n","%0A")
+    System.err.println("::warning::跳过书籍 $warning")
+   }
   }
+  val generatedBytes=outputs.values.sumOf { it.toByteArray().size }
+  require(generatedBytes<=64*1024*1024) { "本次生成超过64 MB，请分成不同书架" }
   require(entries.size<=1000) { "最多1000本书" }
   val catalog=JSONObject().put("version",1).put("books",JSONArray(entries)).toString(2)+"\n"
   require(catalog.toByteArray().size<=256*1024)

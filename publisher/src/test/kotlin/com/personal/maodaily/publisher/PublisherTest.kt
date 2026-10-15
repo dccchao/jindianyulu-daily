@@ -9,6 +9,45 @@ import java.util.zip.ZipOutputStream
 import java.io.ByteArrayOutputStream
 
 class PublisherTest {
+ @Test fun longSentencesSplitOnlyAtNaturalPauses() {
+  val clauses=listOf("读书让我们看到生活中更多的可能，","认真思考让我们理解这些不同的选择；","持续实践才能找到适合自己的方向。")
+  val source=clauses.joinToString("")
+  val parts=ReadingText.sentences(source)
+  assertTrue(parts.size>=2)
+  assertEquals(source,parts.joinToString(""))
+  assertTrue(parts.all { it.length in 12..48 && QuoteRules.eligibleFragment(it) })
+  assertTrue(ReadingText.sentences("没有自然停顿的正文".repeat(10)+"。").isEmpty())
+  val short="读书让我们看到生活的更多可能。"
+  assertEquals(listOf(short),ReadingText.sentences(short))
+ }
+ @Test fun failedBooksWarnWhileSeedsReviewsAndNewBooksContinue() {
+  val root=Files.createTempDirectory("reading-failure-test").toFile()
+  val previous=System.err;val warnings=ByteArrayOutputStream()
+  try {
+   System.setErr(java.io.PrintStream(warnings,true,"UTF-8"))
+   root.resolve("reading").mkdirs();root.resolve("books").mkdirs();root.resolve("reviews").mkdirs()
+   val short="读书让我们看到生活的更多可能。"
+   root.resolve("books/seed.json").writeText(BookCompiler.compile("seed.txt",short.toByteArray(),"精选").toString())
+   root.resolve("seed-books.json").writeText("""{"version":1,"books":[{"id":"seed","title":"精选","path":"books/seed.json"}]}""")
+   root.resolve("reading/坏书.txt").writeText("只有目录，没有正文")
+   root.resolve("reading/损坏.docx").writeBytes(byteArrayOf(1,2,3))
+   root.resolve("reading/全部排除.txt").writeText(short)
+   val blockedId=BookCompiler.stableId("全部排除.txt")
+   root.resolve("reviews/$blockedId.json").writeText("""{"exclude":["$short"]}""")
+   root.resolve("reading/好书.txt").writeText(short)
+   Publisher.generate(root)
+   val books=JSONObject(root.resolve("books.json").readText()).getJSONArray("books")
+   assertEquals(2,books.length())
+   assertEquals("seed",books.getJSONObject(0).getString("id"))
+   val goodId=BookCompiler.stableId("好书.txt")
+   assertEquals(goodId,books.getJSONObject(1).getString("id"))
+   assertEquals(1,BookCompiler.validateCorpus(root.resolve("books/$goodId.json").readText()))
+   assertFalse(root.resolve("books/$blockedId.json").exists())
+   val log=warnings.toString("UTF-8")
+   assertTrue(log.contains("::warning::跳过书籍 坏书.txt"))
+   assertTrue(log.contains("损坏.docx"));assertTrue(log.contains("人工排除后没有可用语录"))
+  } finally { System.setErr(previous);root.deleteRecursively() }
+ }
  @Test fun markdownExcludesTitlesContentsAndFootnotesWithoutCuttingLongSentences() {
   val text="""---
 title: 元数据
@@ -48,10 +87,10 @@ ${"很长的正文".repeat(9)}。
   val quotes=book.getJSONArray("quotes")
   val all=(0 until quotes.length()).map { quotes.getJSONObject(it).getString("text") }
   assertTrue(all.isNotEmpty())
-  assertTrue(all.all { QuoteRules.eligible(it) && it.length<=32 })
+  assertTrue(all.all { QuoteRules.eligibleFragment(it) && it.length<=48 })
   assertFalse(all.any { it.contains("陈独秀") || it.contains("一八九一") })
  }
- @Test fun multipleInputsProduceStableIdsAndCatalogAndNoPartialPublishingOnFailure() {
+ @Test fun multipleInputsProduceStableIdsAndSkipFailedBooks() {
   val root=Files.createTempDirectory("reading-publisher-test").toFile()
   try {
    val reading=root.resolve("reading").apply { mkdirs() }
@@ -63,7 +102,7 @@ ${"很长的正文".repeat(9)}。
    Publisher.generate(root)
    assertEquals(catalog,root.resolve("books.json").readText())
    reading.resolve("错误.txt").writeText("只有目录，没有正文")
-   assertFalse(runCatching { Publisher.generate(root) }.isSuccess)
+   assertTrue(runCatching { Publisher.generate(root) }.isSuccess)
    assertEquals(catalog,root.resolve("books.json").readText())
   } finally { root.deleteRecursively() }
  }

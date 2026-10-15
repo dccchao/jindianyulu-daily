@@ -11,6 +11,8 @@ on:
       - 'index.html'
       - 'quotes.json'
       - '.github/workflows/build-library.yml'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
@@ -34,6 +36,7 @@ jobs:
       - name: Generate all books before publishing
         run: java -jar publisher/build/libs/reading-publisher.jar .
       - name: Save generated library to repository
+        if: github.event_name != 'pull_request'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -43,17 +46,20 @@ jobs:
             git push
           fi
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
       - name: Prepare public site
         run: |
           mkdir -p _site/books
           cp index.html quotes.json books.json _site/
           find books -maxdepth 1 -name '*.json' -type f -exec cp {} _site/books/ \;
       - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
         with:
           path: _site
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
