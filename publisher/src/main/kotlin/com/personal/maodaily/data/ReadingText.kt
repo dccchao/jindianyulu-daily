@@ -21,6 +21,7 @@ object ReadingText {
  }
 
  const val BODY_FILTER_VERSION = 2
+ private val trailingAttribution=Regex("""(?<=[。！？!?.”’"'])\s*[—–－-]{1,2}\s*《[^\r\n]{1,160}》\s*$""")
  private val endPunctuation=Regex("[。！？!?；;.]([”’\\\"'）)])?$",RegexOption.IGNORE_CASE)
  private val noteStart=Regex("^(?:\\[\\^?[^]]+]\\s*:?|[〔【][0-9一二三四五六七八九十]+[〕】]|[（(][0-9]+[)）]|(?:注|注释|注解|脚注|译注|编者注|作者注|说明)[：:]|\\d+[.)、]\\s+)")
  private val chapter=Regex("^(?:第[一二三四五六七八九十百零〇0-9]+[章节卷篇部]|(?:chapter|part|section)\\s+[0-9ivxlc]+|[一二三四五六七八九十]+[、．.]|\\d+(?:\\.\\d+)*[.、]\\s+).{0,70}$",RegexOption.IGNORE_CASE)
@@ -37,7 +38,8 @@ object ReadingText {
   val pending=StringBuilder()
   fun flush() { if(pending.isNotEmpty()) { body.add(pending.toString());pending.clear() } }
   for((i,raw) in lines.withIndex()) {
-   var line=raw.trim()
+   // An attributed excerpt still ends at its sentence punctuation, before the source.
+   var line=raw.trim().replace(trailingAttribution,"")
    if(line.isEmpty()) { noteParagraph=false;pending.clear();continue }
    val markdownHeading=markdown && Regex("^#{1,6}\\s+").containsMatchIn(line)
    val heading=line.replace(Regex("^#{1,6}\\s+"),"").trim().removeSuffix("#").trim()
